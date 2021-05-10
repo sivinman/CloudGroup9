@@ -1,0 +1,62 @@
+az login --tenant sanel.alappatt@stud.unibas.ch
+
+#az account list --output table
+#az account set --subscription 109a6f8c-da25-471f-946b-dda3aa1d9b64
+
+## Variables Dont Change!!!!
+$RG_NAME="Assigment1"
+$ACR_NAME="testcontainerappa1"
+$AKS_NAME="MyAKS"
+$SQL_NAME="assigment1sql20"
+$SQL_DB_NAME="mhcdb"
+$SQL_USER="sqladmin"
+$SQL_PASSWORD="P2ssw0rd1234"
+
+## Create Resource group
+az group create --name $RG_NAME --location westeurope
+
+## Create az container registry
+az acr create --resource-group $RG_NAME --name $ACR_NAME --sku Standard --location westeurope
+
+## Create kubernetes cluster
+az aks create -g $RG_NAME -n $AKS_NAME --node-count 1 --generate-ssh-keys --disable-rbac --kubernetes-version 1.20.5 --location westeurope --attach-acr $ACR_NAME --enable-addons http_application_routing
+
+## Create Azure SQL server and Database
+az sql server create -g $RG_NAME -n $SQL_NAME -u $SQL_USER -p $SQL_PASSWORD -l westeurope
+
+# Create Database
+az sql db create -g $RG_NAME -s $SQL_NAME -n $SQL_DB_NAME --service-objective S0
+
+# Get SQL Sever Name
+$SQL_SERVER_NAME=$(az sql server show --name $SQL_NAME --resource-group $RG_NAME --query "fullyQualifiedDomainName" --output tsv)
+
+# Allow Connection of current IP to the SQL DB
+az sql server firewall-rule create --resource-group $RG_NAME --server $SQL_NAME -n "All" --start-ip-address 0.0.0.0 --end-ip-address 255.255.255.255
+
+# Add Sample Data to the SQL
+docker run -e SQLFQDN=$SQL_SERVER_NAME -e SQLUSER=$SQL_USER -e SQLPASS=$SQL_PASSWORD -e SQLDB=$SQL_DB_NAME openhack/data-load:v1
+
+# Get ACR Login Server
+$ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --resource-group $RG_NAME --query "loginServer" --output tsv)
+
+echo "SQL Server Url: $SQL_SERVER_NAME"
+
+echo "ACR Login Server Url: $ACR_LOGIN_SERVER"
+
+
+
+
+
+## Create Roles for 
+
+# Get the id of the service principal configured for AKS
+
+#$CLIENT_ID=$(az aks show --resource-group $RG_NAME --name $AKS_NAME --query "servicePrincipalProfile.clientId" --output tsv)
+
+# Get the ACR registry resource id
+
+#$ACR_ID=$(az acr show --name $ACR_NAME --resource-group $RG_NAME --query "id" --output tsv)
+
+# Create role assignment
+
+#az role assignment create --assignee $CLIENT_ID --role acrpull --scope $ACR_ID
